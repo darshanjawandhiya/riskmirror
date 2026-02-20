@@ -11,5 +11,6 @@ It provides:
 - Behavioral audit to guide investment decisions
 - Easy-to-use, minimal, modern interface
 
-Built with Python, Streamlit, Pandas, and yfinance.  
+Built with Python, Streamlit, Pandas and yfinance.  
+
 This is my first public experiment in making finance smarter and more transparent for investors.
