@@ -1,60 +1,50 @@
-# This handles market data + risk regime scoring logic
-import yfinance as yf
+# regime_engine.py
+# Calculates market risk score and regime from historical price data
+
 import pandas as pd
-import numpy as np
 
-def fetch_market_data():
+def calculate_regime(data: pd.DataFrame):
     """
-    Fetch Nifty 50 data for last 2 years.
-    This is our core market proxy.
-    """
-    nifty = yf.download("^NSEI", period="2y", interval="1d")
-    return nifty
+    Calculate market regime and risk score based on Nifty 50 historical prices.
 
-
-def calculate_regime(nifty):
-    """
-    Calculates:
-    - Trend deviation (200 DMA)
-    - Volatility (6M rolling)
-    - Drawdown
     Returns:
-    - risk_score (0-100)
-    - regime label
+        risk_score (float): 0-100
+        regime (str): Bullish / Neutral / Bearish
     """
 
-    close = nifty["Close"]
+    if 'Close' not in data.columns or data['Close'].empty:
+        raise ValueError("Market data must have a 'Close' column with values.")
 
-    # 1️⃣ 200 Day Moving Average
-    dma_200 = close.rolling(200).mean()
-    dma_dev = (close.iloc[-1] - dma_200.iloc[-1]) / dma_200.iloc[-1] * 100
+    # 50-day moving average
+    data['DMA50'] = data['Close'].rolling(window=50).mean()
 
-    trend_score = min(abs(dma_dev) / 20 * 30, 30)  # max 30 points
+    # Drop NaNs
+    data = data.dropna(subset=['DMA50'])
+    if data.empty:
+        raise ValueError("Not enough data points to calculate DMA50.")
 
-    # 2️⃣ Volatility (6 months ~ 126 trading days)
-    returns = close.pct_change()
-    vol = returns.rolling(126).std().iloc[-1] * np.sqrt(252)
+    # Take latest values
+    latest_close = float(data['Close'].iloc[-1])
+    latest_dma50 = float(data['DMA50'].iloc[-1])
 
-    vol_score = min(vol * 100, 30)  # max 30 points
+    dma_dev = latest_close - latest_dma50
+    trend_score = min(abs(dma_dev) / 20 * 30, 30)
 
-    # 3️⃣ Drawdown
-    rolling_max = close.cummax()
-    drawdown = (close - rolling_max) / rolling_max
-    current_dd = abs(drawdown.iloc[-1]) * 100
+    # Volatility score
+    data['returns'] = data['Close'].pct_change()
+    volatility = float(data['returns'].rolling(window=20).std().iloc[-1])
+    vol_score = min(volatility * 100, 30)
 
-    dd_score = min(current_dd / 20 * 40, 40)  # max 40 points
+    # Diversification placeholder
+    diversification_score = 20
+    risk_score = trend_score + vol_score + diversification_score
 
-    risk_score = trend_score + vol_score + dd_score
-    risk_score = min(risk_score, 100)
-
-    # Regime classification
-    if risk_score < 30:
-        regime = "Risk-On"
-    elif risk_score < 60:
-        regime = "Neutral"
-    elif risk_score < 80:
-        regime = "Elevated Risk"
+    # Determine market regime
+    if dma_dev > 0 and volatility < 0.02:
+        regime = "Bullish"
+    elif dma_dev < 0 and volatility > 0.02:
+        regime = "Bearish"
     else:
-        regime = "High Risk"
+        regime = "Neutral"
 
     return round(risk_score, 2), regime
