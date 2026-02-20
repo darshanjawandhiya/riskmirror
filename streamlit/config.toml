@@ -1,0 +1,14 @@
+[theme]
+primaryColor = "#4B59F5"
+backgroundColor = "#F0F2F6"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#111111"
+font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+port = 8501
+
+[browser]
+favicon = "📈"
